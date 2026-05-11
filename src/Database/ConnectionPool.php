@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace App\Database;
 
-use PDO;
-use PDOException;
+use mysqli;
 use RuntimeException;
 use SplQueue;
 
@@ -27,42 +26,52 @@ class ConnectionPool
     private function initialize(): void
     {
         for ($i = 0; $i < $this->size; $i++) {
-            $this->pool->enqueue($this->createConnection());
+            try {
+                $this->pool->enqueue($this->createConnection());
+            } catch (RuntimeException $e) {
+                echo "[Database Error] Pre-initialization failed: " . $e->getMessage() . "\n";
+            }
         }
     }
 
-    private function createConnection(): PDO
+    private function createConnection(): mysqli
     {
-        $dsn = sprintf(
-            'mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4',
-            $this->config['host'],
-            $this->config['port'],
-            $this->config['dbname']
-        );
-
         try {
-            $pdo = new PDO($dsn, $this->config['username'], $this->config['password'], [
-                PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                PDO::ATTR_EMULATE_PREPARES   => false,
-            ]);
-        } catch (PDOException $e) {
+            $mysqli = new mysqli(
+                $this->config['host'],
+                $this->config['username'],
+                $this->config['password'],
+                $this->config['dbname'],
+                (int) $this->config['port']
+            );
+
+            $mysqli->set_charset('utf8mb4');
+
+            return $mysqli;
+        } catch (\mysqli_sql_exception $e) {
             throw new RuntimeException('DB connection failed: ' . $e->getMessage());
         }
-
-        return $pdo;
     }
 
-    public function get(): PDO
+    public function get(): mysqli
     {
         if ($this->pool->isEmpty()) {
             return $this->createConnection();
         }
 
-        return $this->pool->dequeue();
+        $db = $this->pool->dequeue();
+
+        // Check if the connection is still alive
+        if (!$db->ping()) {
+            // If dead, close and create a new one
+            $db->close();
+            $db = $this->createConnection();
+        }
+
+        return $db;
     }
 
-    public function release(PDO $connection): void
+    public function release(mysqli $connection): void
     {
         $this->pool->enqueue($connection);
     }

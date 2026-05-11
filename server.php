@@ -5,11 +5,17 @@ declare(strict_types=1);
 require __DIR__ . '/vendor/autoload.php';
 
 // Load .env file
-foreach (file(__DIR__ . '/.env', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
-    if (str_starts_with(trim($line), '#')) continue;
-    [$key, $value] = explode('=', $line, 2);
-    putenv(trim($key) . '=' . trim($value));
+if (file_exists(__DIR__ . '/.env')) {
+    foreach (file(__DIR__ . '/.env', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
+        $line = trim($line);
+        if ($line === '' || str_starts_with($line, '#')) continue;
+        [$key, $value] = explode('=', $line, 2);
+        putenv(trim($key) . '=' . trim($value));
+    }
 }
+
+// Enable MySQLi exceptions so they can be caught in the Handlers
+mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 
 use App\Database\ConnectionPool;
 use App\Handler\HttpHandler;

@@ -7,7 +7,7 @@ namespace App\Handler;
 use App\Database\ConnectionPool;
 use OpenSwoole\Http\Request;
 use OpenSwoole\Http\Response;
-use PDOException;
+use mysqli_sql_exception;
 
 class HttpHandler
 {
@@ -37,10 +37,16 @@ class HttpHandler
         $db = $this->pool->get();
 
         try {
-            $stmt  = $db->query('SELECT id, username, email, created_at FROM users ORDER BY id DESC LIMIT 100');
-            $users = $stmt->fetchAll();
+            $stmt   = $db->prepare('SELECT id, username, email, created_at FROM users ORDER BY id DESC LIMIT 100');
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $users  = $result->fetch_all(MYSQLI_ASSOC);
+            
             $this->json($response, 200, ['data' => $users]);
-        } catch (PDOException) {
+
+            $result->free();
+            $stmt->close();
+        } catch (mysqli_sql_exception) {
             $this->json($response, 500, ['error' => 'Failed to fetch users.']);
         } finally {
             $this->pool->release($db);
@@ -52,14 +58,20 @@ class HttpHandler
         $db = $this->pool->get();
 
         try {
-            $stmt = $db->prepare('SELECT id, username, email, created_at FROM users WHERE id = :id');
-            $stmt->execute([':id' => $id]);
-            $user = $stmt->fetch();
+            $stmt = $db->prepare('SELECT id, username, email, created_at FROM users WHERE id = ?');
+            $stmt->bind_param('i', $id);
+            $stmt->execute();
+
+            $result = $stmt->get_result();
+            $user   = $result->fetch_assoc();
 
             $user
                 ? $this->json($response, 200, ['data' => $user])
                 : $this->json($response, 404, ['error' => 'User not found.']);
-        } catch (PDOException) {
+
+            $result->free();
+            $stmt->close();
+        } catch (mysqli_sql_exception) {
             $this->json($response, 500, ['error' => 'Failed to fetch user.']);
         } finally {
             $this->pool->release($db);

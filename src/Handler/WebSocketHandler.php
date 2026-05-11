@@ -8,7 +8,7 @@ use App\Database\ConnectionPool;
 use App\Validator\InputValidator;
 use OpenSwoole\WebSocket\Server;
 use OpenSwoole\WebSocket\Frame;
-use PDOException;
+use mysqli_sql_exception;
 
 class WebSocketHandler
 {
@@ -52,15 +52,18 @@ class WebSocketHandler
         $db = $this->pool->get();
 
         try {
-            $stmt = $db->prepare('INSERT INTO users (username, email) VALUES (:username, :email)');
-            $stmt->execute([':username' => $username, ':email' => $email]);
+            $stmt = $db->prepare('INSERT INTO users (username, email) VALUES (?, ?)');
+            $stmt->bind_param('ss', $username, $email);
+            $stmt->execute();
 
             $this->send($server, $fd, 'user_created', 'User created.', [
-                'id'       => (int) $db->lastInsertId(),
+                'id'       => (int) $db->insert_id,
                 'username' => $username,
                 'email'    => $email,
             ]);
-        } catch (PDOException $e) {
+
+            $stmt->close();
+        } catch (mysqli_sql_exception $e) {
             $message = str_contains($e->getMessage(), 'Duplicate')
                 ? 'Username or email already exists.'
                 : 'Failed to create user.';

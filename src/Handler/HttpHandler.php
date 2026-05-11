@@ -37,15 +37,15 @@ class HttpHandler
         $db = $this->pool->get();
 
         try {
-            $stmt   = $db->prepare('SELECT id, username, email, created_at FROM users ORDER BY id DESC LIMIT 100');
-            $stmt->execute();
-            $result = $stmt->get_result();
-            $users  = $result->fetch_all(MYSQLI_ASSOC);
+            $stmt   = mysqli_prepare($db, 'SELECT id, username, email, created_at FROM users ORDER BY id DESC LIMIT 100');
+            mysqli_stmt_execute($stmt);
+            $result = mysqli_stmt_get_result($stmt);
+            $users  = mysqli_fetch_all($result, MYSQLI_ASSOC);
             
             $this->json($response, 200, ['data' => $users]);
 
-            $result->free();
-            $stmt->close();
+            mysqli_free_result($result);
+            mysqli_stmt_close($stmt);
         } catch (mysqli_sql_exception) {
             $this->json($response, 500, ['error' => 'Failed to fetch users.']);
         } finally {
@@ -58,19 +58,19 @@ class HttpHandler
         $db = $this->pool->get();
 
         try {
-            $stmt = $db->prepare('SELECT id, username, email, created_at FROM users WHERE id = ?');
-            $stmt->bind_param('i', $id);
-            $stmt->execute();
+            $stmt = mysqli_prepare($db, 'SELECT id, username, email, created_at FROM users WHERE id = ?');
+            mysqli_stmt_bind_param($stmt, 'i', $id);
+            mysqli_stmt_execute($stmt);
 
-            $result = $stmt->get_result();
-            $user   = $result->fetch_assoc();
+            $result = mysqli_stmt_get_result($stmt);
+            $user   = mysqli_fetch_assoc($result);
 
             $user
                 ? $this->json($response, 200, ['data' => $user])
                 : $this->json($response, 404, ['error' => 'User not found.']);
 
-            $result->free();
-            $stmt->close();
+            mysqli_free_result($result);
+            mysqli_stmt_close($stmt);
         } catch (mysqli_sql_exception) {
             $this->json($response, 500, ['error' => 'Failed to fetch user.']);
         } finally {

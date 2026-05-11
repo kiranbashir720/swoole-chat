@@ -52,17 +52,17 @@ class WebSocketHandler
         $db = $this->pool->get();
 
         try {
-            $stmt = $db->prepare('INSERT INTO users (username, email) VALUES (?, ?)');
-            $stmt->bind_param('ss', $username, $email);
-            $stmt->execute();
+            $stmt = mysqli_prepare($db, 'INSERT INTO users (username, email) VALUES (?, ?)');
+            mysqli_stmt_bind_param($stmt, 'ss', $username, $email);
+            mysqli_stmt_execute($stmt);
 
             $this->send($server, $fd, 'user_created', 'User created.', [
-                'id'       => (int) $db->insert_id,
+                'id'       => (int) mysqli_insert_id($db),
                 'username' => $username,
                 'email'    => $email,
             ]);
 
-            $stmt->close();
+            mysqli_stmt_close($stmt);
         } catch (mysqli_sql_exception $e) {
             $message = str_contains($e->getMessage(), 'Duplicate')
                 ? 'Username or email already exists.'

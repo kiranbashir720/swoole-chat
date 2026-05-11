@@ -37,7 +37,7 @@ class ConnectionPool
     private function createConnection(): mysqli
     {
         try {
-            $mysqli = new mysqli(
+            $mysqli = mysqli_connect(
                 $this->config['host'],
                 $this->config['username'],
                 $this->config['password'],
@@ -45,7 +45,7 @@ class ConnectionPool
                 (int) $this->config['port']
             );
 
-            $mysqli->set_charset('utf8mb4');
+            mysqli_set_charset($mysqli, 'utf8mb4');
 
             return $mysqli;
         } catch (\mysqli_sql_exception $e) {
@@ -62,9 +62,9 @@ class ConnectionPool
         $db = $this->pool->dequeue();
 
         // Check if the connection is still alive
-        if (!$db->ping()) {
+        if (!mysqli_ping($db)) {
             // If dead, close and create a new one
-            $db->close();
+            mysqli_close($db);
             $db = $this->createConnection();
         }
 
